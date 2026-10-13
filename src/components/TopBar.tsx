@@ -15,6 +15,8 @@ export function TopBar({ inert }: { inert: boolean }) {
     return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
   }, [route]);
 
+  /* thiệp chung không có lời đề gửi: bỏ luôn thanh trên */
+  if (!TO) return null;
   return (
     <header className={`topbar${solid && route !== 'vuon' ? ' solid' : ''}`} inert={inert}>
       <BloomLink to="vuon" className="sig-mini">{TO}</BloomLink>

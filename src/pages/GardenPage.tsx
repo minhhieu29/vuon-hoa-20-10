@@ -1,11 +1,20 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { COPY, DATE_TEXT } from '../config';
+import { COPY, DATE_TEXT, say } from '../config';
+import { BQ_SIZE } from '../bouquet';
 import { CAPACITY } from '../garden/plan';
 import { Page } from '../components/Page';
 import { BloomLink, useNav } from '../state/nav';
+import { useProgress } from '../state/progress';
+import { frontier } from '../state/steps';
 
 export default function GardenPage() {
   const { garden } = useNav();
+  const { state } = useProgress();
+  /* nút chính dẫn tới bước đang làm dở */
+  const next = frontier(state);
+  const cta = next === 'thiep' ? (state.letterOpen ? 'Xem lá thư' : 'Mở lá thư')
+    : next === 'loi-chuc' ? 'Xem lời chúc'
+    : state.bouquet.length ? 'Tiếp tục chọn hoa' : `Chọn ${say(BQ_SIZE)} bông hoa`;
   const slotRef = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(() => (garden?.stats.count ?? 0) >= CAPACITY);
 
@@ -32,11 +41,10 @@ export default function GardenPage() {
         </h1>
         <p className="lede" data-reveal>{full ? COPY.heroFull : COPY.heroLead}</p>
         <div className="chips" data-reveal>
-          <BloomLink to="loi-chuc" className="chip go">
-            Mở sáu lời chúc
+          <BloomLink to={next} className="chip go">
+            {cta}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
           </BloomLink>
-          <BloomLink to="thiep" className="chip">Đọc thư ngay</BloomLink>
         </div>
       </div>
     </Page>

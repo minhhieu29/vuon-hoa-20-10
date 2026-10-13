@@ -141,8 +141,6 @@ export class GardenEngine {
     else this.text.scatter();
     this.kick(); this.scheduleReduced();
   }
-  /** Xem lại từ đầu: hoa vẫn giữ nguyên, chỉ tạm dừng nở và ẩn chữ cho tới khi mở quà lần nữa. */
-  sleep(): void { this.awake = false; this.nextBloom = Infinity; this.textAlpha = 0; clearTimeout(this.timer); this.kick(); }
 
   setMode(mode: GardenMode): void {
     if (mode === this.mode) return;

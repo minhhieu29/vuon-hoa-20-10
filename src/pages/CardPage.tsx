@@ -1,22 +1,19 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { COPY, LETTER, REPLY_URL } from '../config';
+import { COPY, LETTER } from '../config';
 import { FLOWER } from '../bouquet';
 import { confetti } from '../fx/confetti';
 import { MiniGarden } from '../garden/mini';
 import { coarse, reduceMotion } from '../lib/env';
-import { shareGift } from '../lib/share';
 import { Sound } from '../lib/sound';
 import { Page } from '../components/Page';
-import { useNav } from '../state/nav';
 import { useProgress } from '../state/progress';
-import { saveCard } from './cardImage';
 
 /** 0 phong thư đóng · 1 con dấu bật · 2 nắp mở · 3 lá thư trồi lên · 4 phong thư lùi xuống · 5 tấm thiệp */
 type Stage = 0 | 1 | 2 | 3 | 4 | 5;
 
 /**
  * Nhịp "viết tay" của lá thư (giây): lời mở thư hiện như nét bút kéo ngang, thân thư hiện từng chữ,
- * nghỉ một nhịp giữa các đoạn, cuối cùng là chữ ký. Các nút chỉ hiện khi thư đã viết xong.
+ * nghỉ một nhịp giữa các đoạn, cuối cùng là chữ ký. Thư là bước cuối: đọc xong là hết, không có nút nào phía dưới.
  */
 const SCRIPT = (() => {
   const WORD = 0.055, PARA = 0.35;
@@ -33,11 +30,9 @@ const delay = (d: number) => ({ '--d': `${d.toFixed(2)}s` }) as CSSProperties;
 
 export default function CardPage() {
   const { state, dispatch } = useProgress();
-  const { restart } = useNav();
   const [stage, setStage] = useState<Stage>(state.letterOpen ? 5 : 0);
   /* đã đọc từ lần trước thì hiện đủ ngay, không bắt chờ viết lại */
   const [written, setWritten] = useState(state.letterOpen || reduceMotion);
-  const [saveNote, setSaveNote] = useState('');
   const timers = useRef<number[]>([]);
   const artRef = useRef<HTMLCanvasElement>(null);
   const cardRef = useRef<HTMLElement>(null);
@@ -134,21 +129,6 @@ export default function CardPage() {
           )}
         </div>
         {stage === 5 && !written && <p className="env-hint">{coarse ? 'Chạm' : 'Bấm'} vào thư để hiện hết</p>}
-        {stage === 5 && written && (
-          <>
-            <div className="actions">
-              <button className="btn-primary" type="button" onClick={() => setSaveNote(saveCard(artRef.current, coarse) ? 'Đã tạo ảnh dọc, đăng story hay đặt làm hình nền đều vừa.' : 'Chưa lưu được ảnh, chụp màn hình giúp mình nhé.')}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
-                Lưu thiệp về máy
-              </button>
-              {REPLY_URL && <a className="btn-ghost" href={REPLY_URL} target="_blank" rel="noopener noreferrer">Nhắn lời cảm ơn</a>}
-              <button className="btn-ghost" type="button" onClick={() => { void shareGift().then(setSaveNote); }}>Gửi tặng một người phụ nữ khác</button>
-            </div>
-            {saveNote && <p className="save-note" aria-live="polite">{saveNote}</p>}
-            <button className="btn-quiet" type="button" onClick={restart}>Xem lại từ đầu</button>
-          </>
-        )}
-        <p className="foot">Một món quà nhỏ nhân ngày Phụ nữ Việt Nam 20/10/2026</p>
       </div>
     </Page>
   );

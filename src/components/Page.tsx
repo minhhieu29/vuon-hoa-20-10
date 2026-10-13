@@ -33,7 +33,7 @@ export function Page({ id, labelledBy, className, children }: Props) {
       else io.observe(el);
     }
     return () => io.disconnect();
-    /* chỉ chạy lại khi mở quà / xem lại từ đầu; mỗi lần đổi trang là một Page mới */
+    /* chỉ chạy lại khi mở quà; mỗi lần đổi trang là một Page mới */
   }, [opened, revealBase]);
 
   return (

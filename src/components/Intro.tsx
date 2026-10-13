@@ -2,21 +2,16 @@ import { useEffect, useRef } from 'react';
 import { COPY, TO } from '../config';
 import type { Pt } from '../lib/math';
 
-interface Props { hiding: boolean; focusOnShow: boolean; onOpen: (origin: Pt | null, music: boolean) => void }
+interface Props { hiding: boolean; onOpen: (origin: Pt | null, music: boolean) => void }
 
 /** Màn mở quà: một nụ hoa, bấm vào thì nụ nở ra và khu vườn hiện lên. Có lựa chọn mở không nhạc (đang ở chỗ đông người). */
-export function Intro({ hiding, focusOnShow, onOpen }: Props) {
+export function Intro({ hiding, onOpen }: Props) {
   const budRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
 
   const open = (music = true) => {
     const r = budRef.current?.getBoundingClientRect();
     onOpen(r && r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null, music);
   };
-
-  useEffect(() => {
-    if (!hiding && focusOnShow) btnRef.current?.focus({ preventScroll: true });
-  }, [hiding, focusOnShow]);
 
   /* nhấn Enter ở đâu cũng mở quà */
   useEffect(() => {
@@ -46,9 +41,9 @@ export function Intro({ hiding, focusOnShow, onOpen }: Props) {
             <path d="M50 65c-9-2-14-7-16-13 7 3 12 5 16 6 4-1 9-3 16-6-2 6-7 11-16 13z" fill="#2BC48A" />
           </svg>
         </div>
-        <p className="to-name">{TO}</p>
+        {TO && <p className="to-name">{TO}</p>}
         <h2 id="gateTitle">{COPY.gate}</h2>
-        <button ref={btnRef} className="btn-primary" type="button" onClick={() => open()}>Mở quà</button>
+        <button className="btn-primary" type="button" onClick={() => open()}>Mở quà</button>
         <p className="note">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
           Có nhạc nhẹ đi kèm

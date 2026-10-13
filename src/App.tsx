@@ -12,12 +12,13 @@ import type { Pt } from './lib/math';
 import { ROUTES, TITLES, hrefOf, parseHash, type Route } from './router';
 import { NavCtx, type NavApi } from './state/nav';
 import { ProgressProvider, useProgress } from './state/progress';
+import { frontier, reachable } from './state/steps';
 import GardenPage from './pages/GardenPage';
 import WishesPage from './pages/WishesPage';
 import BouquetPage from './pages/BouquetPage';
 import CardPage from './pages/CardPage';
 
-const PAGES: Record<Route, ComponentType> = { vuon: GardenPage, 'loi-chuc': WishesPage, 'bo-hoa': BouquetPage, thiep: CardPage };
+const PAGES: Record<Route, ComponentType> = { vuon: GardenPage, 'bo-hoa': BouquetPage, 'loi-chuc': WishesPage, thiep: CardPage };
 
 function navOrigin(to: Route): Pt {
   const a = document.querySelector<HTMLElement>(`.dock a[href="${hrefOf(to)}"]`);
@@ -29,27 +30,30 @@ function focusHeading() {
 }
 
 function Shell() {
-  const { dispatch } = useProgress();
-  const [route, setRoute] = useState<Route>(() => parseHash());
+  const { state } = useProgress();
+  /* mở link thẳng tới một trang chưa tới lượt thì dừng ở bước xa nhất đã làm */
+  const [route, setRoute] = useState<Route>(() => { const r = parseHash(); return reachable(r, state) ? r : frontier(state); });
   const [navRoute, setNavRoute] = useState<Route>(route);
   const [opened, setOpened] = useState(false);
   const [introOn, setIntroOn] = useState(true);
-  const [introFocus, setIntroFocus] = useState(false);
   const [revealBase, setRevealBase] = useState(0.75);
   const [garden, setGarden] = useState<GardenEngine | null>(null);
 
   /* giá trị mới nhất cho các hàm gọi bất đồng bộ (chuyển trang, phím tắt) */
-  const live = useRef({ route, opened, busy: false, queued: null as Route | null, garden: null as GardenEngine | null });
-  useEffect(() => { live.current.route = route; live.current.opened = opened; live.current.garden = garden; }, [route, opened, garden]);
+  const live = useRef({ route, opened, state, busy: false, queued: null as Route | null, garden: null as GardenEngine | null });
+  useEffect(() => { live.current.route = route; live.current.opened = opened; live.current.garden = garden; live.current.state = state; }, [route, opened, garden, state]);
 
   /** Chuyển trang: hoa nở phủ màn hình → đổi trang khi bị che → hoa mở ra để lộ trang mới. */
-  const go = useCallback(function go(to: Route, origin?: Pt) {
+  const go = useCallback(function go(want: Route, origin?: Pt) {
     const L = live.current;
     if (!L.opened) return;
-    if (L.busy) { L.queued = to; return; }
-    if (to === L.route) return;
-    /* đi bằng nút Back/Forward thì địa chỉ đã đúng trang: không đẩy thêm mục lịch sử */
-    if (parseHash() !== to) history.pushState(null, '', hrefOf(to));
+    /* trang chưa tới lượt (gõ địa chỉ, nút Back/Forward) thì dừng ở bước xa nhất đã mở */
+    if (L.busy) { L.queued = want; return; }
+    const to = reachable(want, L.state) ? want : frontier(L.state);
+    if (to === L.route) { if (parseHash() !== to) history.replaceState(null, '', hrefOf(to)); return; }
+    /* đi bằng nút Back/Forward thì địa chỉ đã đúng trang: không đẩy thêm mục lịch sử; bị đổi hướng thì thay luôn địa chỉ */
+    if (to !== want) history.replaceState(null, '', hrefOf(to));
+    else if (parseHash() !== to) history.pushState(null, '', hrefOf(to));
     else if (location.hash && location.hash !== hrefOf(to)) history.replaceState(null, '', hrefOf(to));
     L.busy = true;
     setNavRoute(to);
@@ -80,27 +84,17 @@ function Shell() {
     window.setTimeout(() => { setIntroOn(false); if (!L.busy) focusHeading(); }, 1500);
   }, []);
 
-  const restart = useCallback(() => {
-    const L = live.current;
-    if (L.busy) return;
-    dispatch({ type: 'reset' });
-    L.garden?.sleep();
-    history.replaceState(null, '', location.pathname + location.search);
-    window.scrollTo(0, 0);
-    flushSync(() => { setRoute('vuon'); setNavRoute('vuon'); setRevealBase(0.75); setIntroOn(true); setIntroFocus(true); setOpened(false); });
-    L.route = 'vuon'; L.opened = false;
-  }, [dispatch]);
-
   /* nút Back/Forward hoặc sửa địa chỉ */
   useEffect(() => {
     const onHistory = () => {
-      const r = parseHash(), L = live.current;
-      if (L.opened) go(r);
-      else if (r !== L.route) { setRoute(r); setNavRoute(r); L.route = r; }
+      const L = live.current, h = parseHash(), r = reachable(h, L.state) ? h : frontier(L.state);
+      if (L.opened) { go(h); return; }
+      if (r !== h) history.replaceState(null, '', hrefOf(r));
+      if (r !== L.route) { setRoute(r); setNavRoute(r); L.route = r; }
     };
     window.addEventListener('popstate', onHistory);
     window.addEventListener('hashchange', onHistory);
-    if (location.hash && location.hash !== hrefOf(parseHash())) history.replaceState(null, '', hrefOf(parseHash()));
+    if (location.hash && location.hash !== hrefOf(live.current.route)) history.replaceState(null, '', hrefOf(live.current.route));
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     return () => { window.removeEventListener('popstate', onHistory); window.removeEventListener('hashchange', onHistory); };
   }, [go]);
@@ -109,7 +103,7 @@ function Shell() {
   useEffect(() => {
     const step = (d: number) => {
       const i = ROUTES.indexOf(live.current.route) + d;
-      if (i >= 0 && i < ROUTES.length) go(ROUTES[i], navOrigin(ROUTES[i]));
+      if (i >= 0 && i < ROUTES.length && reachable(ROUTES[i], live.current.state)) go(ROUTES[i], navOrigin(ROUTES[i]));
     };
     const onKey = (e: KeyboardEvent) => {
       if (!live.current.opened || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -147,7 +141,7 @@ function Shell() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  const api = useMemo<NavApi>(() => ({ route, navRoute, opened, revealBase, garden, go, restart }), [route, navRoute, opened, revealBase, garden, go, restart]);
+  const api = useMemo<NavApi>(() => ({ route, navRoute, opened, revealBase, garden, go }), [route, navRoute, opened, revealBase, garden, go]);
   const PageView = PAGES[route];
 
   return (
@@ -158,7 +152,7 @@ function Shell() {
         <PageView key={route} />
       </main>
       <Dock inert={!opened} />
-      {introOn && <Intro hiding={opened} focusOnShow={introFocus} onOpen={openGift} />}
+      {introOn && <Intro hiding={opened} onOpen={openGift} />}
       <canvas className="veil" aria-hidden="true" ref={el => { veil.attach(el); }} />
       <canvas className="confetti" aria-hidden="true" ref={el => { confetti.attach(el); }} />
     </NavCtx.Provider>

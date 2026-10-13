@@ -13,7 +13,6 @@ export interface NavApi {
   revealBase: number;
   garden: GardenEngine | null;
   go: (to: Route, origin?: Pt) => void;
-  restart: () => void;
 }
 
 export const NavCtx = createContext<NavApi | null>(null);

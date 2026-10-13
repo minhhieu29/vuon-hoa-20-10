@@ -107,6 +107,11 @@ main { position: relative; z-index: 1; }
 .dock a:hover { color: var(--ink); }
 .dock a[aria-current="page"] { color: #251600; }
 .dock a svg { width: 22px; height: 22px; transition: transform .45s var(--spring); }
+/* trang chưa tới lượt: mờ đi, bấm vào thì rung nhẹ */
+.dock a.locked { color: rgba(203, 192, 224, .34); cursor: not-allowed; }
+.dock a.locked:hover { color: rgba(203, 192, 224, .5); }
+.dock a.nudge svg { animation: nudge .45s ease; }
+@keyframes nudge { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
 .dock a[aria-current="page"] svg { transform: translateY(-1px) scale(1.08); }
 .dock .ind { position: absolute; z-index: 0; top: 6px; left: 0; width: 72px; height: calc(100% - 12px); border-radius: 999px; background: var(--sun); box-shadow: 0 6px 24px rgba(255, 211, 110, .35); }
 .dock.ready .ind { transition: transform .55s var(--spring), width .55s var(--spring); }
@@ -139,12 +144,8 @@ main { position: relative; z-index: 1; }
 .sec-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 40px; margin-bottom: clamp(24px, 4vw, 40px); }
 .sec-head .copy { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .sub { margin: 0; max-width: 46ch; font-size: 18px; line-height: 1.6; color: var(--muted); }
-.page-next { margin-top: clamp(40px, 6vw, 64px); padding-top: 22px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.page-next span { font-size: 15px; color: var(--dim); }
-.next-link { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 20px; box-sizing: border-box; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 16px/1 var(--f-body); text-decoration: none; transition: background .2s ease, transform .25s var(--spring); }
-.next-link:hover { background: #2A1F55; transform: translateX(3px); }
 
-/* ---------- trang 2: nụ lời chúc ---------- */
+/* ---------- trang 3: lời chúc trong từng bông ---------- */
 .wish-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 720px) { .wish-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
 .wish-card { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; perspective: 900px; border-radius: 22px; --c2: #FFFFFF; }
@@ -162,7 +163,8 @@ main { position: relative; z-index: 1; }
 .bud-ico svg { position: relative; width: 100%; height: 100%; transform-origin: 50% 95%; animation: sway 4.4s ease-in-out infinite; }
 .wish-card:nth-child(2n) .bud-ico svg { animation-delay: -1.6s; }
 .wish-card:nth-child(3n) .bud-ico svg { animation-delay: -2.9s; }
-.tap { font-size: 15px; color: var(--muted); }
+.wc-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.tap { font-size: 14px; color: var(--dim); }
 .back { transform: rotateY(180deg); gap: 8px; justify-content: flex-start; background: rgba(40, 30, 80, .95); background: color-mix(in srgb, var(--c) 15%, rgba(20, 14, 44, .96)); border-color: rgba(255, 255, 255, .2); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
 .bloom { width: 44px; height: 44px; flex: none; overflow: visible; }
 .bloom .pt { fill: var(--c); transform-box: fill-box; transform-origin: 50% 100%; }
@@ -175,14 +177,20 @@ main { position: relative; z-index: 1; }
 .wc-title { font-family: var(--f-display); font-weight: 700; font-size: 22px; line-height: 1.15; color: var(--c); }
 .wc-text { font-size: 16px; line-height: 1.5; color: var(--ink); }
 .wish-card.open .wc-title { animation: fadeUp .5s ease .45s both; }
-.wish-card.open .wc-text { animation: fadeUp .5s ease .6s both; }
+/* lời chúc hiện dần từng chữ sau khi thẻ lật xong */
+.wish-card.open .wc-text .w { opacity: 0; animation: ink .35s ease forwards; animation-delay: calc(.75s + var(--k) * 45ms); }
 @media (max-width: 400px) { .face { padding: 16px 13px; } .wc-text { font-size: 15px; } .wc-title { font-size: 20px; } }
-.all-done { margin: 20px 0 0; padding: 18px 20px; border-radius: 18px; background: rgba(48, 38, 30, .92); border: 1px solid rgba(255, 211, 110, .38); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; animation: fadeUp .6s ease both; }
-.all-done p { margin: 0; flex: 1 1 260px; color: var(--sun); font-weight: 600; }
+.wish-left { margin: clamp(24px, 4vw, 36px) 0 0; text-align: center; font-size: 15px; color: var(--dim); }
+.wish-done { margin: clamp(30px, 5vw, 48px) auto 0; max-width: 32rem; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; animation: fadeUp .7s ease .5s both; }
+.wish-done p { margin: 0; font-family: var(--f-script); font-weight: 700; font-size: clamp(23px, 3vw, 28px); line-height: 1.35; color: var(--sun); text-wrap: balance; }
+.wish-empty { display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 8vh; text-align: center; }
+.wish-empty .h::after { margin-inline: auto; }
 
-/* ---------- trang 3: bó hoa ---------- */
+/* ---------- trang 2: bó hoa ---------- */
 .bq { display: grid; gap: clamp(20px, 4vw, 44px); align-items: start; }
 @media (min-width: 860px) { .bq { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
+/* điện thoại: bảng chọn hoa lên trước bó hoa; đủ hoa thì trang tự kéo xuống cho xem lúc thắt nơ */
+@media (max-width: 859px) { .bq-panel { order: -1; } }
 .bq-stage { position: relative; width: min(100%, 420px); margin-inline: auto; aspect-ratio: 4/5; border-radius: 30px; border: 1px solid var(--line); overflow: hidden;
   background: radial-gradient(70% 45% at 50% 100%, rgba(255, 95, 162, .24), transparent 70%), radial-gradient(60% 45% at 50% 30%, rgba(198, 156, 255, .13), transparent 70%), rgba(20, 14, 44, .9); }
 .bq-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -199,14 +207,19 @@ main { position: relative; z-index: 1; }
 .bq-pick:hover:not(:disabled) svg { transform: rotate(-10deg) scale(1.08); }
 .bq-pick b { font-size: 15px; font-weight: 600; line-height: 1.2; }
 .bq-pick small { font-size: 13px; line-height: 1.3; color: var(--dim); }
+.bq-count { display: flex; align-items: center; gap: 12px; }
+.bq-dots { display: flex; flex-wrap: wrap; gap: 8px; }
+.bq-dot { width: 36px; height: 36px; box-sizing: border-box; border-radius: 50%; border: 1.5px dashed rgba(214, 196, 255, .5); display: grid; place-items: center; transition: border-color .3s ease, background .3s ease; }
+.bq-dot.on { border: 1px solid rgba(255, 211, 110, .45); background: rgba(255, 211, 110, .1); }
+.bq-dot svg { width: 24px; height: 24px; overflow: visible; animation: pop .5s var(--spring) both; }
+.bq-num { font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.bq-num b { color: var(--ink); font-weight: 700; }
+@media (max-width: 400px) { .bq-dots { gap: 6px; } .bq-dot { width: 32px; height: 32px; } .bq-dot svg { width: 21px; height: 21px; } }
 .bq-note { margin: 0; min-height: 1.6em; font-size: 16px; color: var(--muted); }
 .bq-note b { color: var(--ink); }
 .bq-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .bq-done { padding: 18px 20px; border-radius: 20px; background: rgba(48, 38, 30, .92); border: 1px solid rgba(255, 211, 110, .38); display: flex; flex-direction: column; gap: 14px; animation: fadeUp .6s ease .5s both; }
 .bq-done p { margin: 0; color: var(--sun); font-weight: 600; }
-.bq-done .share-note { color: var(--muted); font-weight: 400; font-size: 15px; }
-.btn-quiet { min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: 600 15px/1 var(--f-body); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(203, 192, 224, .45); cursor: pointer; }
-.btn-quiet:hover { color: var(--ink); }
 .bq-stem { fill: none; stroke: #2FB57E; stroke-width: 3.4; stroke-linecap: round; stroke-dasharray: 1 2; stroke-dashoffset: 1; animation: draw .55s ease-out forwards; }
 .bq-stem.bye { animation: undraw .35s ease-in forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -274,16 +287,12 @@ main { position: relative; z-index: 1; }
 .postcard.written .w, .postcard.written .ink { animation: none; opacity: 1; clip-path: none; }
 /* đang đọc thư: vườn phía sau lùi vào bóng tối để lá thư là trung tâm */
 html.reading .garden-layer { opacity: .16; transition-duration: 1.8s; }
-.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 6px; animation: fadeUp .6s ease both; }
-.save-note { margin: 0; max-width: 40ch; font-size: 15px; color: var(--muted); animation: fadeUp .4s ease both; }
-.card-wrap > .btn-quiet { animation: fadeUp .6s ease .3s both; }
-.foot { margin: clamp(40px, 6vw, 64px) 0 0; padding-top: 22px; border-top: 1px solid var(--line); width: 100%; font-size: 14px; color: var(--dim); }
 
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1; transform: none; transition: none; }
   .bud::before, .bud svg, .bud-ico svg, .envelope, .env-seal::before, .wrapped .bq-all, .bq-sway, .wish-card.open .bloom, .gate { animation: none; }
-  .wish-card.open .bloom .pt, .wish-card.open .bloom .pt2, .wish-card.open .bloom .core, .wish-card.open .wc-title, .wish-card.open .wc-text { animation: none; }
-  .bq-stem, .bq-pop, .postcard, .actions, .save-note, .card-wrap > .btn-quiet, .all-done, .bq-done { animation: none; }
+  .wish-card.open .bloom .pt, .wish-card.open .bloom .pt2, .wish-card.open .bloom .core, .wish-card.open .wc-title, .wish-card.open .wc-text .w { animation: none; opacity: 1; }
+  .bq-stem, .bq-pop, .bq-dot svg, .postcard, .wish-done, .bq-done, .dock a.nudge svg { animation: none; }
   .card-body .w, .card-body .ink { animation: none; opacity: 1; clip-path: none; }
   .bq-stem { stroke-dashoffset: 0; }
   .wc-inner, #intro, #intro.hide, #intro.hide .bud, #intro.hide .gate > :not(.bud), .bud, .bud .bp, .bud .bud-core, .dock, .dock.ready .ind, .topbar, .env-flap, .env-paper, .envelope, .bq-greens, .bq-paper-back, .bq-paper-front, .bq-ribbon, .garden-layer { transition: none; }

@@ -1,6 +1,7 @@
 import { TAU, rand } from './lib/math';
 import { C } from './garden/palette';
 import type { MiniKind } from './garden/mini';
+import { WISHES } from './config';
 
 export type FlowerKey = 'rose' | 'lotus' | 'sunflower' | 'daisy' | 'lavender' | 'baby';
 
@@ -52,22 +53,30 @@ export const BOUQUET: FlowerInfo[] = [
   { key: 'rose', name: 'Hoa hồng', meaning: 'lòng biết ơn', vb: '-28 -28 56 56', note: 72, color: C.pink, mini: { type: 2, color: C.pink }, svg: SVG.rose },
   { key: 'lotus', name: 'Hoa sen', meaning: 'thanh khiết, bền bỉ vươn lên', vb: '-27 -33 54 46', note: 76, color: '#FF8FB8', mini: { type: 5, color: '#FF8FB8' }, svg: SVG.lotus },
   { key: 'sunflower', name: 'Hướng dương', meaning: 'luôn hướng về phía ánh sáng', vb: '-28 -28 56 56', note: 79, color: C.sun, mini: { type: 0, color: C.sun, center: '#7A4622' }, svg: SVG.sunflower },
-  { key: 'daisy', name: 'Cúc họa mi', meaning: 'mùa thu Hà Nội, trong trẻo', vb: '-25 -25 50 50', note: 81, color: C.white, mini: { type: 0, color: C.white }, svg: SVG.daisy },
+  { key: 'daisy', name: 'Cúc họa mi', meaning: 'trong trẻo như thu Hà Nội', vb: '-25 -25 50 50', note: 81, color: C.white, mini: { type: 0, color: C.white }, svg: SVG.daisy },
   { key: 'lavender', name: 'Oải hương', meaning: 'bình yên, thư thái', vb: '-29 -51 58 58', note: 84, color: C.lilac, mini: { type: 4, color: C.lilac }, svg: SVG.lavender },
   { key: 'baby', name: 'Hoa baby', meaning: 'những điều nhỏ xinh', vb: '-24 -32 48 44', note: 88, color: C.white, mini: { type: 1, color: C.white, size: 11 }, svg: SVG.baby },
 ];
 export const FLOWER: Record<FlowerKey, FlowerInfo> = Object.fromEntries(BOUQUET.map(f => [f.key, f])) as Record<FlowerKey, FlowerInfo>;
 
-export const BQ_MAX = 9;
-/** Một bông cũng đủ thành quà: không bắt người nhận chọn cho đủ số. */
-export const BQ_MIN = 1;
+/** Số bông của một bó: chọn đủ thì bó tự gói lại và chuyển sang trang lời chúc (mỗi bông mang một lời). */
+export const BQ_SIZE = 6;
 /** Nút buộc bó hoa trong toạ độ SVG 400×500. */
 export const TIE = [200, 404] as const;
 const SLOTS: readonly (readonly [number, number])[] = [[200, 166], [140, 194], [260, 194], [200, 226], [94, 228], [306, 228], [148, 256], [252, 256], [200, 122]];
 
-export interface BouquetItem { id: number; k: FlowerKey; slot: number; hx: number; hy: number; ex: number; qx: number; qy: number; rot: number; sd: number }
+/** w: lời chúc thứ mấy trong mười lời của loài hoa này (WISHES trong src/config.ts). */
+export interface BouquetItem { id: number; k: FlowerKey; w: number; slot: number; hx: number; hy: number; ex: number; qx: number; qy: number; rot: number; sd: number }
 
-/** Đặt một bông vào chỗ trống đầu tiên trong bó: tính sẵn vị trí đầu hoa, đường cong thân và góc nghiêng. */
+/** Rút một lời chúc của loài k mà bó hoa chưa có, để hai bông cùng loài không trùng lời. */
+function pickWish(k: FlowerKey, items: BouquetItem[]): number {
+  const used = new Set(items.filter(it => it.k === k).map(it => it.w));
+  const free = WISHES[k].map((_, i) => i).filter(i => !used.has(i));
+  const pool = free.length ? free : WISHES[k].map((_, i) => i);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** Đặt một bông vào chỗ trống đầu tiên trong bó: tính sẵn vị trí đầu hoa, đường cong thân, góc nghiêng và lời chúc nó mang theo. */
 export function placeFlower(k: FlowerKey, items: BouquetItem[], id: number): BouquetItem | null {
   const used = new Set(items.map(it => it.slot));
   let slot = 0;
@@ -78,5 +87,5 @@ export function placeFlower(k: FlowerKey, items: BouquetItem[], id: number): Bou
   const qx = TIE[0] + (hx - TIE[0]) * 0.42, qy = (TIE[1] + hy) / 2 + 12;
   const dirA = (Math.atan2(hy - qy, hx - qx) * 180) / Math.PI + 90;
   const rot = k === 'lotus' || k === 'lavender' || k === 'baby' ? dirA * 0.85 : rand(-30, 30);
-  return { id, k, slot, hx, hy, ex: TIE[0] + (hx - TIE[0]) * 0.18 + rand(-3, 3), qx, qy, rot, sd: -rand(0, 5) };
+  return { id, k, w: pickWish(k, items), slot, hx, hy, ex: TIE[0] + (hx - TIE[0]) * 0.18 + rand(-3, 3), qx, qy, rot, sd: -rand(0, 5) };
 }

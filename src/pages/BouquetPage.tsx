@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOUQUET, BQ_MAX, BQ_MIN, FLOWER, TIE, placeFlower, type BouquetItem, type FlowerKey } from '../bouquet';
+import { BOUQUET, BQ_SIZE, FLOWER, TIE, placeFlower, type BouquetItem, type FlowerKey } from '../bouquet';
 import { confetti } from '../fx/confetti';
 import { bz, bzd } from '../lib/math';
 import { coarse, reduceMotion } from '../lib/env';
-import { shareGift } from '../lib/share';
 import { Sound } from '../lib/sound';
 import { Page } from '../components/Page';
-import { NextLink } from '../components/NextLink';
 import { BloomLink, useNav } from '../state/nav';
-import { COPY } from '../config';
+import { COPY, WISHES, say } from '../config';
+import { cap } from '../recipient';
 import { useProgress } from '../state/progress';
 
 /** Mấy cành lá bạch đàn làm nền cho bó hoa (tính một lần). */
@@ -28,13 +27,19 @@ function greensMarkup(): string {
   return html;
 }
 
+const START = 'Mỗi loài hoa mang một ý nghĩa riêng.';
+/** Đủ hoa rồi: đợi bông cuối nở xong mới gói, gói xong một lúc mới sang trang lời chúc. */
+const WRAP_AFTER = reduceMotion ? 0 : 900;
+const GO_AFTER = reduceMotion ? 1400 : 2600;
+
 export default function BouquetPage() {
   const { state, dispatch } = useProgress();
-  const { garden } = useNav();
+  const { garden, go } = useNav();
   const greens = useMemo(() => greensMarkup(), []);
   const [leaving, setLeaving] = useState<ReadonlySet<number>>(new Set());
-  const [note, setNote] = useState<ReactNode>('Mỗi loài hoa mang một ý nghĩa riêng.');
-  const [shareNote, setShareNote] = useState('');
+  const [note, setNote] = useState<ReactNode>(START);
+  /* vừa gói xong ngay trên trang này (không phải quay lại xem): sắp tự sang trang lời chúc */
+  const [moving, setMoving] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
@@ -44,15 +49,18 @@ export default function BouquetPage() {
   const items = state.bouquet;
   const active = items.filter(it => !leaving.has(it.id));
   const n = active.length;
+  /* tính cả bông đang rơi ra (vẫn còn trong bó thêm một nhịp): chọn chen vào lúc đó thì bông mới bị bỏ qua */
+  const full = items.length >= BQ_SIZE;
   const sorted = useMemo(() => [...items].sort((a, b) => a.hy - b.hy), [items]);
 
   const add = (k: FlowerKey) => {
-    if (wrapped || n >= BQ_MAX) return;
+    if (wrapped || full) return;
     const item = placeFlower(k, active, state.nextId);
     if (!item) return;
     dispatch({ type: 'addFlower', item });
     Sound.pluck(FLOWER[k].note);
-    setNote(<>Vừa thêm <b>{FLOWER[k].name}</b>: {FLOWER[k].meaning}.</>);
+    const left = BQ_SIZE - n - 1;
+    setNote(<>Vừa thêm <b>{FLOWER[k].name}</b>: {FLOWER[k].meaning}. {left ? `Còn ${say(left)} bông nữa.` : `Đủ ${say(BQ_SIZE)} bông rồi!`}</>);
     later(() => {
       const el = stageRef.current?.querySelector(`[data-id="${item.id}"]`);
       if (!el) return;
@@ -73,22 +81,32 @@ export default function BouquetPage() {
   };
 
   const wrap = () => {
-    if (wrapped || n < BQ_MIN) return;
     dispatch({ type: 'wrap' });
+    setMoving(true);
     Sound.chime();
-    setNote('');
     /* bó hoa gói xong thì vườn nở thêm vài bông đúng loài đã chọn */
-    garden?.bloomSpecial(active.slice(0, 4).map(it => ({ color: FLOWER[it.k].mini.color, type: FLOWER[it.k].mini.type, center: FLOWER[it.k].mini.center })));
-    later(() => {
+    garden?.bloomSpecial(items.slice(0, 4).map(it => ({ color: FLOWER[it.k].mini.color, type: FLOWER[it.k].mini.type, center: FLOWER[it.k].mini.center })));
+    /* trên điện thoại bó hoa nằm dưới bảng chọn: kéo bó hoa vào giữa màn hình để thấy lúc thắt nơ */
+    const s = stageRef.current?.getBoundingClientRect();
+    if (s && (s.top < 0 || s.bottom > innerHeight - 90)) stageRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    const tie = () => {
       const r = stageRef.current?.getBoundingClientRect();
-      if (r) confetti.burst(r.left + r.width / 2, r.top + (r.height * TIE[1]) / 500, 26);
-    }, 650);
+      return r && r.width ? { x: r.left + r.width / 2, y: r.top + (r.height * TIE[1]) / 500 } : undefined;
+    };
+    later(() => { const p = tie(); if (p) confetti.burst(p.x, p.y, 26); }, 650);
+    later(() => go('loi-chuc', tie()), GO_AFTER);
   };
 
-  const again = () => { dispatch({ type: 'unwrap' }); setNote('Mỗi loài hoa mang một ý nghĩa riêng.'); };
+  /* chọn đủ hoa thì bó tự gói lại; bỏ bớt một bông trong lúc chờ thì thôi */
+  useEffect(() => {
+    if (wrapped || items.length < BQ_SIZE || leaving.size) return;
+    const id = window.setTimeout(wrap, WRAP_AFTER);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ hẹn lại khi số bông đổi; wrap đọc bó hoa của lần vẽ này
+  }, [wrapped, items.length, leaving.size]);
 
-  const full = !wrapped && n >= BQ_MAX;
   const label = n ? `Bó hoa ${n} bông: ${active.map(it => FLOWER[it.k].name).join(', ')}` : 'Bó hoa đang trống';
+  const shown = wrapped ? items : active;
 
   return (
     <Page id="bo-hoa" labelledBy="h-bo-hoa" className="section">
@@ -96,8 +114,8 @@ export default function BouquetPage() {
         <div className="sec-head" data-reveal>
           <div className="copy">
             <p className="kicker">Món quà cho chính mình</p>
-            <h2 id="h-bo-hoa" className="h" tabIndex={-1} data-h>Chọn hoa cho mình</h2>
-            <p className="sub">Hôm nay {COPY.you} không cần chiều lòng ai. Chọn những loài hoa {COPY.you} thích, một bông hay cả bó đều được, rồi gói lại cho riêng mình.</p>
+            <h2 id="h-bo-hoa" className="h" tabIndex={-1} data-h>Tự chọn một bó hoa</h2>
+            <p className="sub">Hôm nay {COPY.you} không cần chiều lòng ai. Cứ chọn {say(BQ_SIZE)} bông {COPY.you} thích, trùng loài cũng được. Mỗi loài hoa giữ sẵn {say(WISHES.rose.length)} lời chúc, mỗi bông được chọn sẽ mang theo một lời.</p>
           </div>
         </div>
         <div className="bq">
@@ -144,38 +162,60 @@ export default function BouquetPage() {
                 </g>
               </g>
             </svg>
-            <p className="bq-hint">{n ? `${coarse ? 'Chạm' : 'Bấm'} vào một bông trong bó để bỏ ra.` : 'Bó hoa đang trống, chọn một bông bên cạnh nhé.'}</p>
+            <p className="bq-hint">{n ? `${coarse ? 'Chạm' : 'Bấm'} vào một bông trong bó để bỏ ra.` : `Bó hoa đang trống. Chọn ${say(BQ_SIZE)} bông ${COPY.you} thích nhé.`}</p>
           </div>
           <div className="bq-panel">
             <div className="bq-palette" role="group" aria-label="Các loài hoa" data-reveal>
               {BOUQUET.map(f => (
-                <button key={f.key} className="bq-pick" type="button" disabled={wrapped || n >= BQ_MAX} onClick={() => add(f.key)}>
+                <button key={f.key} className="bq-pick" type="button" disabled={wrapped || full} onClick={() => add(f.key)}>
                   <svg viewBox={f.vb} aria-hidden="true" dangerouslySetInnerHTML={{ __html: f.svg }} />
                   <b>{f.name}</b>
                   <small>{f.meaning}</small>
                 </button>
               ))}
             </div>
-            <p className="bq-note" aria-live="polite">{full ? 'Bó hoa đã đầy tay rồi.' : note}</p>
+            {/* sáu ô trống lần lượt có hoa: biết còn thiếu mấy bông mà không cần đọc chữ */}
+            <div className="bq-count" data-reveal>
+              <span className="bq-dots" aria-hidden="true">
+                {Array.from({ length: BQ_SIZE }, (_, i) => {
+                  const it = shown[i];
+                  return (
+                    <span key={i} className={`bq-dot${it ? ' on' : ''}`}>
+                      {it && <svg key={it.id} viewBox={FLOWER[it.k].vb} dangerouslySetInnerHTML={{ __html: FLOWER[it.k].svg }} />}
+                    </span>
+                  );
+                })}
+              </span>
+              <span className="bq-num"><b>{shown.length}</b>/{BQ_SIZE}</span>
+            </div>
             {wrapped ? (
-              <div className="bq-done">
-                <p>Bó hoa này là của {COPY.you}. Những loài {COPY.you} chọn sẽ mọc trên tấm thiệp cuối.</p>
-                <div className="bq-actions">
-                  <BloomLink to="thiep" className="btn-primary">Đọc thư</BloomLink>
-                  <button className="btn-ghost" type="button" onClick={() => { void shareGift().then(setShareNote); }}>Gửi tặng một người phụ nữ khác</button>
-                  <button className="btn-quiet" type="button" onClick={again}>Gói bó khác</button>
-                </div>
-                {shareNote && <p className="share-note" aria-live="polite">{shareNote}</p>}
+              <div className="bq-done" aria-live="polite">
+                {moving ? (
+                  <p>Bó hoa đã gói xong. {cap(say(BQ_SIZE))} lời chúc đang đợi {COPY.you}…</p>
+                ) : (
+                  <>
+                    <p>Bó hoa này là của {COPY.you}. Mỗi bông đang giữ một lời chúc.</p>
+                    <div className="bq-actions">
+                      <BloomLink to="loi-chuc" className="btn-primary">
+                        Xem lời chúc
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                      </BloomLink>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
-              <div className="bq-actions">
-                <button className="btn-primary" type="button" disabled={n < BQ_MIN} onClick={wrap}>Gói bó hoa</button>
-                <button className="btn-ghost" type="button" disabled={!n} onClick={() => { const last = active[active.length - 1]; if (last) remove(last); }}>Bỏ bông vừa thêm</button>
-              </div>
+              <>
+                <p className="bq-note" aria-live="polite">{note}</p>
+                {n > 0 && (
+                  <div className="bq-actions">
+                    <button className="btn-ghost" type="button" onClick={() => { const last = active[active.length - 1]; if (last) remove(last); }}>Bỏ bông vừa thêm</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
-        <NextLink to="thiep">Lá thư cuối</NextLink>
       </div>
     </Page>
   );
